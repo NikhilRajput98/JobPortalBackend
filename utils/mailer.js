@@ -12,7 +12,7 @@ export const sendOTP = async (email, otp) => {
   service: "gmail",
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,  // Use app password if 2FA enabled
+    pass: process.env.SMTP_PASS, 
   }
 });
   const mailOptions = {
