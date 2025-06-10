@@ -3,11 +3,16 @@ import Otp from "../models/Otp.js";
 import bcrypt from "bcrypt";
 import { sendOTP } from "../utils/mailer.js";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
 
 export const sendOtp = async (req, res) => {
-  const {
+  const { name, email, password, phoneNo, country, state, city, address } =
+    req.body;
+
+  const requiredFields = {
     name,
     email,
     password,
@@ -15,10 +20,7 @@ export const sendOtp = async (req, res) => {
     country,
     state,
     city,
-    address
-  } = req.body;
-
-  const requiredFields = { name, email, password, phoneNo, country, state, city };
+  };
 
   for (let [key, value] of Object.entries(requiredFields)) {
     if (!value || value === "undefined" || value === "") {
@@ -26,27 +28,27 @@ export const sendOtp = async (req, res) => {
     }
   }
 
+  if (!/^\d{10}$/.test(phoneNo)) {
+    return res.status(400).json({
+      message:
+        "Phone number must be exactly 10 digits and contain only numbers",
+    });
+  }
 
-  // if (!name || name == undefined) 
-  //   return res.status(400).json({ message: "Name is required" });
-  // if (!email) 
-  //   return res.status(400).json({ message: "Email is required" });
-  // if (!password) 
-  //   return res.status(400).json({ message: "Password is required" });
-  // if (!phoneNo) 
-  //   return res.status(400).json({ message: "Phone number is required" });
-  // if (!country) 
-  //   return res.status(400).json({ message: "Country is required" });
-  // if (!state) 
-  //   return res.status(400).json({ message: "State is required" });
-  // if (!city) 
-  //   return res.status(400).json({ message: "City is required" });
-  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      message: "Invalid email format",
+    });
+  }
+
   try {
     const existingUser = await User.findOne({ email });
 
     if (existingUser && existingUser.isVerified) {
-      return res.status(400).json({ message: "User already exists and verified" });
+      return res
+        .status(400)
+        .json({ message: "User already exists and verified" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -69,7 +71,7 @@ export const sendOtp = async (req, res) => {
         state,
         city,
         address,
-        isVerified: false
+        isVerified: false,
       },
       { upsert: true, new: true }
     );
@@ -77,14 +79,13 @@ export const sendOtp = async (req, res) => {
     await sendOTP(email, otp);
 
     res.status(200).json({ message: "OTP sent to your email" });
-
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Error sending OTP", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error sending OTP", error: error.message });
   }
 };
-
-
 
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
@@ -93,7 +94,9 @@ export const verifyOtp = async (req, res) => {
     const record = await Otp.findOne({ email });
 
     if (!record) {
-      return res.status(400).json({ message: "OTP not found. Please try again." });
+      return res
+        .status(400)
+        .json({ message: "OTP not found. Please try again." });
     }
 
     if (record.otp !== otp) {
@@ -101,16 +104,21 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (record.expiresAt < new Date()) {
-      return res.status(400).json({ message: "OTP expired. Please request again." });
+      return res
+        .status(400)
+        .json({ message: "OTP expired. Please request again." });
     }
 
     await User.findOneAndUpdate({ email }, { isVerified: true });
     await Otp.deleteOne({ email });
 
-    res.status(200).json({ message: "Email verified successfully. You can now log in." });
-
+    res
+      .status(200)
+      .json({ message: "Email verified successfully. You can now log in." });
   } catch (error) {
-    res.status(500).json({ message: "Error verifying OTP", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
@@ -121,58 +129,86 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user || !user.isVerified) {
-      return res.status(400).json({ message: "User not verified or doesn't exist" });
+      return res
+        .status(400)
+        .json({ message: "User not verified or doesn't exist" });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: "Wrong credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY, { expiresIn: "1d" });
+    const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY, {
+      expiresIn: "1d",
+    });
 
     res.status(200).json({ message: "Login successful", token });
-
   } catch (error) {
     res.status(500).json({ message: "Login failed", error: error.message });
   }
 };
 
-
-
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id); 
+    const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({data:user, message:"User profile details fetched successfully !!!"});
+    res.status(200).json({
+      data: user,
+      message: "User profile details fetched successfully !!!",
+    });
   } catch (err) {
-    res.status(500).json({ message: "Something went wrong", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Something went wrong", error: err.message });
   }
 };
-
 
 export const updateProfile = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { ...req.body },
-      { new: true }
-    );
+    const userId = req.user.id;
+    const { name, phoneNo, country, state, city } = req.body;
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.name = name || user.name;
+    user.phoneNo = phoneNo || user.phoneNo;
+    user.country = country || user.country;
+    user.state = state || user.state;
+    user.city = city || user.city;
+
+    if (phoneNo && !/^\d{10}$/.test(phoneNo)) {
+      return res.status(400).json({
+        message:
+          "Phone number must be exactly 10 digits and contain only numbers",
+      });
     }
 
-    res.status(200).json({ message: "Profile updated successfully", data:user });
-  } catch (err) {
-    res.status(500).json({ message: "Update failed", error: err.message });
+    if (req.file) {
+      if (user.profileImage) {
+        const oldImagePath = path.join(
+          "uploads/profileImages",
+          user.profileImage
+        );
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+          console.log("Old image deleted:", oldImagePath);
+        }
+      }
+
+      user.profileImage = req.file.filename;
+    } else {
+      console.log("No new image uploaded. Keeping previous image.");
+    }
+
+    await user.save();
+    res
+      .status(200)
+      .json({ message: "Profile updated successfully", data: user });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating profile", error });
   }
 };
-
-
-
-
-
-

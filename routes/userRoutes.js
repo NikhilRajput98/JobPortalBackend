@@ -1,4 +1,5 @@
 import express from "express";
+import upload from "../middlewares/upload.js";
 import { sendOtp, verifyOtp, login, getProfile, updateProfile } from "../controllers/userController.js";
 import { authenticateUser } from "../middlewares/authMiddleware.js";
 
@@ -8,6 +9,6 @@ router.post("/register", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/login", login);
 router.get("/profile", authenticateUser, getProfile);
-router.put("/profile", authenticateUser, updateProfile);
+router.put("/update-profile", authenticateUser, upload.single('profileImage'), updateProfile);
 
 export default router;
