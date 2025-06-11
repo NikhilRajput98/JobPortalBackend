@@ -8,7 +8,8 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
 
-export const sendOtp = async (req, res) => {
+//Register User
+export const registerUser = async (req, res) => {
   const { name, email, password, phoneNo, country, state, city, address } =
     req.body;
 
@@ -21,15 +22,17 @@ export const sendOtp = async (req, res) => {
     state,
     city,
   };
-
   for (let [key, value] of Object.entries(requiredFields)) {
     if (!value || value === "undefined" || value === "") {
-      return res.status(400).json({ message: `${key} is required` });
+      return res
+        .status(400)
+        .json({ success: false, message: `${key} is required` });
     }
   }
 
   if (!/^\d{10}$/.test(phoneNo)) {
     return res.status(400).json({
+      success: false,
       message:
         "Phone number must be exactly 10 digits and contain only numbers",
     });
@@ -37,9 +40,9 @@ export const sendOtp = async (req, res) => {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({
-      message: "Invalid email format",
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email format" });
   }
 
   try {
@@ -48,19 +51,12 @@ export const sendOtp = async (req, res) => {
     if (existingUser && existingUser.isVerified) {
       return res
         .status(400)
-        .json({ message: "User already exists and verified" });
+        .json({ success: false, message: "User already exists and verified" });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await Otp.findOneAndUpdate(
-      { email },
-      { otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
-      { upsert: true, new: true }
-    );
-
-    await User.findOneAndUpdate(
+    const user = await User.findOneAndUpdate(
       { email },
       {
         name,
@@ -76,52 +72,102 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const otpLog =  await Otp.create({
+      userId: user._id,
+      email,
+      otp,
+      expiresAt: new Date(Date.now() + 2 * 60 * 1000), 
+    });
+
+    const token = jwt.sign({ id: user._id, otpId:otpLog._id }, process.env.SECRET_KEY, {
+      expiresIn: "10m",
+    });
+
     await sendOTP(email, otp);
 
-    res.status(200).json({ message: "OTP sent to your email" });
+    res
+      .status(200)
+      .json({ success: true, message: "OTP sent to your email", token });
   } catch (error) {
     console.log(error);
     res
       .status(500)
-      .json({ message: "Error sending OTP", error: error.message });
+      .json({
+        success: false,
+        message: "Error during registration",
+        error: error.message,
+      });
   }
 };
 
+//Verify user
 export const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
+  const { token, otp } = req.body;
 
   try {
-    const record = await Otp.findOne({ email });
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+    const otpId = decoded.otpId;
 
-    if (!record) {
-      return res
-        .status(400)
-        .json({ message: "OTP not found. Please try again." });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
-    if (record.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
+    const record = await Otp.findById(otpId);
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP not found. Please try again.",
+      });
+    }
+
+    if (record.isUsed) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP already used. Please request a new one.",
+      });
     }
 
     if (record.expiresAt < new Date()) {
-      return res
-        .status(400)
-        .json({ message: "OTP expired. Please request again." });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request again.",
+      });
     }
 
-    await User.findOneAndUpdate({ email }, { isVerified: true });
-    await Otp.deleteOne({ email });
+    if (record.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
 
-    res
-      .status(200)
-      .json({ message: "Email verified successfully. You can now log in." });
+    await Otp.findByIdAndUpdate(record._id, { isUsed: true });
+
+    await User.findByIdAndUpdate(userId, { isVerified: true });
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully. You can now log in.",
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error verifying OTP", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "OTP verification failed",
+      error: error.message,
+    });
   }
 };
 
+
+//Login user
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -147,6 +193,7 @@ export const login = async (req, res) => {
   }
 };
 
+//Profile fetch
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -166,6 +213,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
+//Update profile
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;

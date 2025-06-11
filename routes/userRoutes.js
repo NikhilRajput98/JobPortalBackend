@@ -1,11 +1,11 @@
 import express from "express";
 import upload from "../middlewares/upload.js";
-import { sendOtp, verifyOtp, login, getProfile, updateProfile } from "../controllers/userController.js";
+import { verifyOtp, login, getProfile, updateProfile, registerUser } from "../controllers/userController.js";
 import { authenticateUser } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/register", sendOtp);
+router.post("/register", registerUser);
 router.post("/verify-otp", verifyOtp);
 router.post("/login", login);
 router.get("/profile", authenticateUser, getProfile);
