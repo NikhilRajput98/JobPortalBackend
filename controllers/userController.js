@@ -172,7 +172,7 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password"); 
 
     if (!user || !user.isVerified) {
       return res
@@ -192,6 +192,7 @@ export const login = async (req, res) => {
     res.status(500).json({ success:false, message: "Login failed", error: error.message });
   }
 };
+
 
 //Profile fetch
 export const getProfile = async (req, res) => {
