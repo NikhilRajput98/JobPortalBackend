@@ -177,19 +177,19 @@ export const login = async (req, res) => {
     if (!user || !user.isVerified) {
       return res
         .status(400)
-        .json({ message: "User not verified or doesn't exist" });
+        .json({ success: false, message: "User not verified or doesn't exist" });
     }
 
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Wrong credentials" });
+    if (!match) return res.status(401).json({ success:false, message: "Wrong credentials" });
 
     const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY, {
       expiresIn: "1d",
     });
 
-    res.status(200).json({ message: "Login successful", token });
+    res.status(200).json({ success: true, message: "Login successful", token });
   } catch (error) {
-    res.status(500).json({ message: "Login failed", error: error.message });
+    res.status(500).json({ success:false, message: "Login failed", error: error.message });
   }
 };
 
@@ -199,17 +199,18 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({
       data: user,
+      success: true,
       message: "User profile details fetched successfully !!!",
     });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Something went wrong", error: err.message });
+      .json({ success: false, message: "Something went wrong", error: err.message });
   }
 };
 
@@ -220,7 +221,7 @@ export const updateProfile = async (req, res) => {
     const { name, phoneNo, country, state, city } = req.body;
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     user.name = name || user.name;
     user.phoneNo = phoneNo || user.phoneNo;
@@ -230,6 +231,7 @@ export const updateProfile = async (req, res) => {
 
     if (phoneNo && !/^\d{10}$/.test(phoneNo)) {
       return res.status(400).json({
+        success: false,
         message:
           "Phone number must be exactly 10 digits and contain only numbers",
       });
@@ -253,10 +255,11 @@ export const updateProfile = async (req, res) => {
     }
 
     await user.save();
+    const userProfile = await User.findById(userId).select("-password")
     res
       .status(200)
-      .json({ message: "Profile updated successfully", data: user });
+      .json({ success: true, message: "Profile updated successfully", data: userProfile });
   } catch (error) {
-    res.status(500).json({ message: "Error updating profile", error });
+    res.status(500).json({ success: false, message: "Error updating profile", error });
   }
 };
