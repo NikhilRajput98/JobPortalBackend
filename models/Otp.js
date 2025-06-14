@@ -19,9 +19,13 @@ const otpSchema = new mongoose.Schema({
     required: true,
   },
   isUsed: {
-  type: Boolean,
-  default: false,
-}
-});
+    type: Boolean,
+    default: false,
+  },
+  companyId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Company" 
+  },
+},{timestamps: true});
 
 export default mongoose.model("Otp", otpSchema);

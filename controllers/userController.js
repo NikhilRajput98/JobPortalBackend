@@ -153,7 +153,7 @@ export const verifyOtp = async (req, res) => {
 
     await User.findByIdAndUpdate(userId, { isVerified: true });
 
-    return res.status(200).json({
+    return res.status(200).json({ 
       success: true,
       message: "Email verified successfully. You can now log in.",
     });

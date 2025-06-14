@@ -14,6 +14,20 @@ const storage = multer.diskStorage({
   }
 });
 
+const logoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = "uploads/companyLogos";
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `company-${Date.now()}${ext}`;
+    cb(null, uniqueName);
+  },
+});
+
+
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -25,3 +39,4 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter });
 
 export default upload;
+export const uploadLogo = multer({ storage: logoStorage });

@@ -159,3 +159,45 @@ export const getAdminProfile = async (req, res) => {
     });
   }
 };
+
+//implement for some time (ye es lea q ki admin khud se to factor on off kr sake)
+export const toggleTwoFactorAdmin = async (req, res) => {
+  try {
+    const { adminId, enable2FA } = req.body;
+
+    if (!adminId) {
+      return res.status(400).json({ success: false, message: "adminId is required" });
+    }
+
+    if (typeof enable2FA !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "enable2FA must be true or false",
+      });
+    }
+
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    admin.isTwoFactorEnabled = enable2FA;
+    await admin.save();
+
+    res.status(200).json({
+      success: true,
+      message: `2FA has been ${enable2FA ? "enabled" : "disabled"} successfully`,
+      isTwoFactorEnabled: admin.isTwoFactorEnabled,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to toggle 2FA",
+      error: error.message,
+    });
+  }
+};
