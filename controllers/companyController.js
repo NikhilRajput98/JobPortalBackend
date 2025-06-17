@@ -1,7 +1,7 @@
 import Company from "../models/Company.js";
 import Otp from "../models/Otp.js";
-import Job from "../models/Job.js";
-import Application from "../models/Application.js";
+// import Job from "../models/Job.js";
+// import Application from "../models/Application.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { sendOTP } from "../utils/mailer.js";
@@ -332,334 +332,84 @@ export const toggleTwoFactor = async (req, res) => {
   }
 };
 
-
-//Company Dashboard
-export const getCompanyDashboard = async (req, res) => {
+// GET Company Profile
+export const getCompanyProfile = async (req, res) => {
   try {
-    const companyId = req.company._id;
+    const company = await Company.findById(req.company._id).select("-password -__v");
 
-    //Company Details
-    const company = await Company.findById(companyId).select("-password");
-
-    //Jobs Posted by Company
-    const jobs = await Job.find({ company: companyId }).sort({ createdAt: -1 });
-
-    const jobIds = jobs.map((job) => job._id);
-
-    //All Applications to this Company's Jobs
-    const applications = await Application.find({ job: { $in: jobIds } });
-
-    //Dashboard Stats
-    const stats = {
-      totalJobs: jobs.length,
-      activeJobs: jobs.filter((j) => !j.deadline || new Date(j.deadline) > new Date()).length,
-      expiredJobs: jobs.filter((j) => j.deadline && new Date(j.deadline) <= new Date()).length,
-      totalApplications: applications.length,
-      pendingApplications: applications.filter((a) => a.status === "pending").length,
-      shortlisted: applications.filter((a) => a.status === "shortlisted").length,
-      rejected: applications.filter((a) => a.status === "rejected").length,
-    };
-
-    //Recent 5 Jobs
-    const recentJobs = jobs.slice(0, 5);
-
-    //Recent 5 Applications with User Info
-    const recentApplicants = await Application.find({ job: { $in: jobIds } })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate("user", "name email resume");
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
 
     res.status(200).json({
       success: true,
-      message: "Dashboard data fetched successfully",
-      company,
-      stats,
-      recentJobs,
-      recentApplicants,
+      message: "Company profile fetched successfully",
+      company: {
+        _id: company._id,
+        name: company.name,
+        industryType: company.industryType,
+        companyType: company.companyType,
+        location: company.location,
+        description: company.description,
+        website: company.website,
+        logo: company.logo,
+        isVerified: company.isVerified,
+        isTwoFactorEnabled: company.isTwoFactorEnabled,
+      },
     });
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Failed to fetch dashboard data",
-      error: err.message,
+      message: "Failed to fetch company profile",
+      error: error.message,
     });
   }
 };
 
 
+// UPDATE Company Profile
+export const updateCompanyProfile = async (req, res) => {
+  try {
+    const company = await Company.findById(req.company._id);
+
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+
+    const updatableFields = [
+      "name",
+      "industryType",
+      "companyType",
+      "location",
+      "description",
+      "website",
+      "logo"
+    ];
+
+    updatableFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        company[field] = req.body[field];
+      }
+    });
+
+    await company.save();
+
+    const updatedCompany = await Company.findById(company._id).select("-password -__v");
+
+    res.status(200).json({
+      success: true,
+      message: "Company profile updated successfully",
+      company: updatedCompany,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update company profile",
+      error: error.message,
+    });
+  }
+};
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import Company from "../models/Company.js";
-// import Otp from "../models/Otp.js";
-// import Job from "../models/Job.js";
-// import bcrypt from "bcrypt";
-// import jwt from "jsonwebtoken";
-// import { sendOTP } from "../utils/mailer.js";
-
-// //Register Company
-// export const registerCompany = async (req, res) => {
-//   const {
-//     name,
-//     email,
-//     password,
-//     industryType,
-//     location,
-//     logo,
-//     description,
-//     website,
-//     companyType,
-//   } = req.body;
-
-//   try {
-//     const requiredFields = {
-//       name,
-//       email,
-//       password,
-//       industryType,
-//       location,
-//     };
-
-//     for (const [key, value] of Object.entries(requiredFields)) {
-//       if (!value || value.trim() === "") {
-//         return res
-//           .status(400)
-//           .json({ success: false, message: `${key} is required` });
-//       }
-//     }
-
-//     const exist = await Company.findOne({ email });
-//     if (exist)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Company already registered" });
-
-//     const hashedPassword = await bcrypt.hash(password, 10);
-
-//     const company = await Company.create({
-//       name,
-//       email,
-//       password: hashedPassword,
-//       industryType,
-//       location,
-//       logo: logo || "",
-//       description: description || "",
-//       website: website || "",
-//       companyType: companyType || "",
-//     });
-
-//     // Generate OTP and store it with company reference
-//     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-//     const otpRecord = await Otp.create({
-//       email,
-//       code: otpCode,
-//       companyId: company._id,
-//       expiresAt: new Date(Date.now() + 3 * 60 * 1000),
-//     });
-
-//     await sendOTP(email, otpCode, "Company Email Verification");
-
-//     const token = jwt.sign(
-//       { companyId: company._id, otpId: otpRecord._id },
-//       process.env.SECRET_KEY,
-//       { expiresIn: "15m" }
-//     );
-
-//     res.status(201).json({
-//       success: true,
-//       message: "OTP sent to email for verification",
-//       token,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: "Registration error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// //Verify OTP
-// export const verifyCompanyOtp = async (req, res) => {
-//   const { token, otp } = req.body;
-
-//   try {
-//     const decoded = jwt.verify(token, process.env.SECRET_KEY);
-//     const { companyId, otpId } = decoded;
-
-//     const record = await Otp.findById(otpId);
-//     if (
-//       !record ||
-//       record.code !== otp ||
-//       record.isUsed ||
-//       record.expiresAt < Date.now()
-//     ) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid or expired OTP" });
-//     }
-
-//     await Otp.findByIdAndUpdate(otpId, { isUsed: true });
-//     await Company.findByIdAndUpdate(companyId, { isVerified: true });
-
-//     res
-//       .status(200)
-//       .json({ success: true, message: "Email verified successfully" });
-//   } catch (err) {
-//     res
-//       .status(401)
-//       .json({ success: false, message: "Invalid or expired token" });
-//   }
-// };
-
-// //Company Login
-// export const loginCompany = async (req, res) => {
-//   const { email, password } = req.body;
-
-//   try {
-//     const company = await Company.findOne({ email }).select("+password");
-//     if (!company || !(await bcrypt.compare(password, company.password))) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid credentials" });
-//     }
-
-//     if (!company.isVerified) {
-//       return res
-//         .status(403)
-//         .json({ success: false, message: "Email not verified" });
-//     }
-
-//     const token = jwt.sign({ id: company._id }, process.env.SECRET_KEY, {
-//       expiresIn: "7d",
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Login successful",
-//       token,
-//       twoFA: company.isTwoFactorEnabled,
-//       company: {
-//         _id: company._id,
-//         name: company.name,
-//         email: company.email,
-//         industryType: company.industryType,
-//         location: company.location,
-//       },
-//     });
-//   } catch (err) {
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Login failed", error: err.message });
-//   }
-// };
-
-// //Toggle 2FA
-// export const toggle2FA = async (req, res) => {
-//   try {
-//     const company = await Company.findById(req.company._id);
-//     company.isTwoFactorEnabled = !company.isTwoFactorEnabled;
-//     await company.save();
-
-//     res.status(200).json({
-//       success: true,
-//       message: "2FA setting updated",
-//       twoFA: company.isTwoFactorEnabled,
-//     });
-//   } catch (err) {
-//     res.status(500).json({ success: false, message: "Failed to toggle 2FA" });
-//   }
-// };
-
-// //Post Job
-// export const postJob = async (req, res) => {
-//   try {
-//     const job = await Job.create({ ...req.body, company: req.company._id });
-
-//     await Company.findByIdAndUpdate(req.company._id, {
-//       $push: { jobs: job._id },
-//     });
-
-//     res.status(201).json({ success: true, job });
-//   } catch (err) {
-//     res
-//       .status(500)
-//       .json({
-//         success: false,
-//         message: "Failed to post job",
-//         error: err.message,
-//       });
-//   }
-// };
-
-// //Get Dashboard
-// export const getDashboard = async (req, res) => {
-//   try {
-//     const company = await Company.findById(req.company._id).populate("jobs");
-
-//     res.status(200).json({ success: true, company });
-//   } catch (err) {
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Failed to fetch dashboard" });
-//   }
-// };
-
-// //Update Company Profile (Optional)
-// export const updateCompanyProfile = async (req, res) => {
-//   try {
-//     const updates = req.body;
-
-//     if (req.file) {
-//       updates.logo = req.file.path;
-//     }
-
-//     const company = await Company.findByIdAndUpdate(req.company._id, updates, {
-//       new: true,
-//     });
-
-//     res.status(200).json({ success: true, company });
-//   } catch (err) {
-//     res
-//       .status(500)
-//       .json({
-//         success: false,
-//         message: "Failed to update profile",
-//         error: err.message,
-//       });
-//   }
-// };

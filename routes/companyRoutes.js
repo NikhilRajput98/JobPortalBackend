@@ -1,5 +1,5 @@
 import express from "express";
-import { registerCompany, verifyCompanyOtp, companyLogin, verifyCompanyLoginOtp, toggleTwoFactor, getCompanyDashboard } from "../controllers/companyController.js";
+import { registerCompany, verifyCompanyOtp, companyLogin, verifyCompanyLoginOtp, toggleTwoFactor, getCompanyProfile, updateCompanyProfile } from "../controllers/companyController.js";
 import { authCompany } from "../middlewares/companyMiddleware.js";
 
 const router = express.Router();
@@ -9,6 +9,8 @@ router.post("/verify", verifyCompanyOtp);
 router.post("/login", companyLogin);
 router.post("/verify-login-otp", verifyCompanyLoginOtp);
 router.patch("/2fa-toggle", authCompany, toggleTwoFactor);
-router.get("/dashboard", authCompany, getCompanyDashboard);
+router.get("/profile", authCompany, getCompanyProfile )
+router.put("/update", authCompany, updateCompanyProfile)
+
 
 export default router;

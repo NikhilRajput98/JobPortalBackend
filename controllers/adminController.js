@@ -99,7 +99,7 @@ export const verifyAdminOtp = async (req, res) => {
 
     await Otp.findByIdAndUpdate(record._id, { isUsed: true });
 
-    const admin = await Admin.findById(userId);
+    const admin = await Admin.findById(decoded.userId);
 
     if (!admin) {
       return res
@@ -160,14 +160,10 @@ export const getAdminProfile = async (req, res) => {
   }
 };
 
-//implement for some time (ye es lea q ki admin khud se to factor on off kr sake)
+//2FA 
 export const toggleTwoFactorAdmin = async (req, res) => {
   try {
-    const { adminId, enable2FA } = req.body;
-
-    if (!adminId) {
-      return res.status(400).json({ success: false, message: "adminId is required" });
-    }
+    const { enable2FA } = req.body;
 
     if (typeof enable2FA !== "boolean") {
       return res.status(400).json({
@@ -176,7 +172,7 @@ export const toggleTwoFactorAdmin = async (req, res) => {
       });
     }
 
-    const admin = await Admin.findById(adminId);
+    const admin = await Admin.findById(req.admin._id);
 
     if (!admin) {
       return res.status(404).json({
