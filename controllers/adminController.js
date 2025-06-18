@@ -1,5 +1,7 @@
 import Admin from "../models/Admin.js";
 import Otp from "../models/Otp.js";
+import Company from "../models/Company.js";
+import { getPagination } from "../utils/paginationHelper.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { sendOTP } from "../utils/mailer.js";
@@ -197,3 +199,100 @@ export const toggleTwoFactorAdmin = async (req, res) => {
     });
   }
 };
+
+
+//Pagination
+export const getAllCompaniesWithPagination = async (req, res) => {
+  try {
+    const { page, limit, search, startDate, endDate } = req.query;
+
+    const result = await getPagination({
+      model: Company,
+      page,
+      limit,
+      search,
+      searchFields: ["name", "email", "industryType"],
+      dateField: "createdAt",
+      startDate,
+      endDate,
+      select: "-password -otp",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Companies fetched successfully",
+      ...result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching companies",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// export const getAllCompaniesWithPagination = async (req, res) => {
+//   try {
+    
+//     const page = parseInt(req.query.page) || 1; 
+//     const limit = parseInt(req.query.limit) || 10; 
+
+//     const totalItems = await Company.countDocuments();
+
+//     const skip = (page - 1) * limit;
+
+//     const companies = await Company.find()
+//       .skip(skip)
+//       .limit(limit)
+//       .select("-password -otp");
+
+//     const totalPages = Math.ceil(totalItems / limit);
+//     const isPrevious = page > 1;
+//     const isNext = page < totalPages;
+//     const pageStartCount = skip + 1;
+//     const pageEndCount = Math.min(skip + companies.length, totalItems);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Companies fetched successfully",
+//       pagination: {
+//         totalItems,
+//         totalPages,
+//         currentPage: page,
+//         limit,
+//         isPrevious,
+//         isNext,
+//         pageStartCount,
+//         pageEndCount,
+//       },
+//       data: companies,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error fetching companies",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
